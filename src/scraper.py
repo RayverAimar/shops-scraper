@@ -6,17 +6,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from bs4 import BeautifulSoup
 from config import *
-from product import Product
-from manager import DatabaseManager
-from time import sleep
 import requests
-from notifypy import Notify 
-
-def send_alert(msg):
-    notification = Notify()
-    notification.title = "Quoter has a new message"
-    notification.message = msg
-    notification.send()
 
 class GenericScraper(object):
     def __init__(self, product_name, homepage_url) -> None:
@@ -105,11 +95,10 @@ class AmazonScraper(GenericScraper):
         options.add_argument('--start-maximized')
         driver = webdriver.Chrome(options=options)
         driver.get(url)
-        WebDriverWait(driver, timeout=10).until(EC.presence_of_all_elements_located((By.XPATH, "//span[contains(@class, 'aok-offscreen')]")))
-        price = driver.find_element(By.XPATH, "//span[contains(@class, 'aok-offscreen' )]").get_attribute('textContent')
+        WebDriverWait(driver, timeout=10).until(EC.presence_of_all_elements_located((By.XPATH, "//span[contains(@class, 'a-price a-text-price a-size-medium apexPriceToPay')]")))
+        price = driver.find_element(By.XPATH, "//span[contains(@class, 'a-price a-text-price a-size-medium apexPriceToPay')]/span[1]").get_attribute('textContent')
         driver.quit()
-        print(price)
-        price = price[6:]
+        price = price[3:]
         return float(price)
 
 class EbayScraper(GenericScraper):
@@ -131,10 +120,8 @@ class EbayScraper(GenericScraper):
             try:
                 print(f'Scraping product ({index+1}/{len(products)})')
                 name = product.find('div', attrs={'class':'s-item__title'}).get_text()
-                price = product.find('span', attrs={'class':'s-item__price'}).get_text()
-                price = price.replace(' ', '')
-                price = float(price[4:]) / SOL_TO_DOLAR
                 url = product.find('a', attrs={'class':'s-item__link'}).get('href')
+                price = EbayScraper.get_price_of_product(url)
                 self.products.append(
                     GenericProduct(name=name,
                             price=price,
@@ -156,62 +143,7 @@ class EbayScraper(GenericScraper):
         price = soup.find('div', attrs={'class':'x-bin-price__content'}).find('span', attrs={'class':'ux-textspans'})
         if not price:
             return None
+        if price.get_text()[:2] != 'US':
+            raise TypeError('Error in the currency of the price')
         price = price.get_text()[1:]
         return float(price.split(' ')[1][1:])
-
-class Quoter:
-    def __init__(self) -> None:
-        pass
-
-    @staticmethod
-    def add_product_to_quote(product_name):
-        amazon_scraper = AmazonScraper(
-            product_name=product_name
-        )
-        ebay_scraper = EbayScraper(
-            product_name=product_name,
-        )
-
-        amazon_scraper.scrape()
-        ebay_scraper.scrape()
-
-        amazon_product = amazon_scraper.choose_product()
-        ebay_product = ebay_scraper.choose_product()
-
-        product = Product(
-            name=product_name,
-            amazon_url=amazon_product.url,
-            ebay_url=ebay_product.url,
-            amazon_price=amazon_product.price,
-            ebay_price=ebay_product.price,
-        )
-
-        DatabaseManager.store_product(product)
-    
-    @staticmethod
-    def quote():
-        while True:
-            products = DatabaseManager.get_current_products()
-            for product in products:
-                id, name, amazon_url, ebay_url, amazon_price, ebay_price = product
-                try:
-                    new_amazon_price = AmazonScraper.get_price_of_product(amazon_url)
-                except  TimeoutException as TE:
-                    print('Error while loading page. Skipping...')
-                    continue
-                new_ebay_price = EbayScraper.get_price_of_product(ebay_url)
-                if new_amazon_price < float(amazon_price):
-                    send_alert(f'The product {name} got a discount from {amazon_price} to {new_amazon_price} in Amazon!')
-                if new_ebay_price < float(ebay_price):
-                    send_alert(f'The product {name} got a discount from {amazon_price} to {new_amazon_price} in Amazon!')
-                if new_amazon_price < new_ebay_price:
-                    send_alert(f'The product {name} is cheaper in Amazon ({amazon_price}) than in eBay ({ebay_price})')
-                else:
-                    send_alert(f'The product {name} is cheaper in eBay ({ebay_price}) than in Amazon ({amazon_price})')
-            sleep(20)
-
-DatabaseManager.create_database()
-DatabaseManager.create_products_table()
-
-Quoter.add_product_to_quote('Iphone 13')
-Quoter.quote()

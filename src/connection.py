@@ -1,7 +1,7 @@
 import mysql.connector as mysql
 from config import DATABASE_NAME
 
-def connect():
+def connect(verbose=True):
     try:
         connection = mysql.connect(
             host = 'localhost',
@@ -9,7 +9,8 @@ def connect():
             password = '',
             database = DATABASE_NAME,
         )
-        print(f'Connected to {DATABASE_NAME} database.')
+        if verbose:
+            print(f'Connected to {DATABASE_NAME} database.')
         return connection
     except mysql.Error as e:
         print('There was an error during connection.')

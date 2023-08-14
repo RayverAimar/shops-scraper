@@ -79,13 +79,13 @@ class DatabaseManager:
     @staticmethod
     def get_current_products():
         try:
-            conn = connect()
+            conn = connect(verbose=False)
             cursor = conn.cursor()
             sql_query = 'select * from products'
             cursor.execute(sql_query)
             products = cursor.fetchall()
             conn.close()
-            print('Products loaded successfully!')
+            #print('Products loaded successfully!')
             return products
         except mysql.Error as e:
             print('There were an error while getting the products.')
