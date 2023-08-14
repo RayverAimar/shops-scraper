@@ -45,14 +45,14 @@ class GenericScraper(object):
         if not self.products:
             print('Please scrape before choose a product.')
             return None
-        print(f'Displaying products from {self._homepage_url}:')
+        print(f'Displaying {len(self.products)} products from {self._homepage_url}:')
         for index, product in enumerate(self.products):
             print(f'Product N° {index + 1}:')
             print('\tName:', product.name)
             print('\tPrice:', product.price)
             print('\tUrl:', product.url)
             print()
-            index = int(input('Enter the index of one of the products displayed above: ')) - 1
+        index = int(input('Enter the index of one of the products displayed above: ')) - 1
         return self.products[index]
 
 class GenericProduct:
@@ -80,7 +80,7 @@ class AmazonScraper(GenericScraper):
                 print(f'Scraping product ({index+1}/{len(products)})')
                 price = product.find('span', attrs={'class':'a-price'})
                 if not price:
-                    print('Price not found in current product. Skipping...\n')
+                    print('Price not found in current product. Skipping...')
                     continue
                 price = price.find('span', attrs={'class':'a-offscreen'}).get_text()
                 price = float(price.split('$').pop())
@@ -108,6 +108,7 @@ class AmazonScraper(GenericScraper):
         WebDriverWait(driver, timeout=10).until(EC.presence_of_all_elements_located((By.XPATH, "//span[contains(@class, 'aok-offscreen')]")))
         price = driver.find_element(By.XPATH, "//span[contains(@class, 'aok-offscreen' )]").get_attribute('textContent')
         driver.quit()
+        print(price)
         price = price[6:]
         return float(price)
 
@@ -131,6 +132,7 @@ class EbayScraper(GenericScraper):
                 print(f'Scraping product ({index+1}/{len(products)})')
                 name = product.find('div', attrs={'class':'s-item__title'}).get_text()
                 price = product.find('span', attrs={'class':'s-item__price'}).get_text()
+                price = price.replace(' ', '')
                 price = float(price[4:]) / SOL_TO_DOLAR
                 url = product.find('a', attrs={'class':'s-item__link'}).get('href')
                 self.products.append(
@@ -139,8 +141,9 @@ class EbayScraper(GenericScraper):
                             url=url,
                     )
                 )
-            except:
-                print('Error while parsing product. Skipping...\n')
+            except Exception as e:
+                print('Error while parsing product. Skipping...')
+                print(e)
                 continue
         return SUCCESS
     
@@ -160,7 +163,8 @@ class Quoter:
     def __init__(self) -> None:
         pass
 
-    def add_product_to_quote(self, product_name):
+    @staticmethod
+    def add_product_to_quote(product_name):
         amazon_scraper = AmazonScraper(
             product_name=product_name
         )
@@ -205,15 +209,9 @@ class Quoter:
                 else:
                     send_alert(f'The product {name} is cheaper in eBay ({ebay_price}) than in Amazon ({amazon_price})')
             sleep(20)
-'''
-myQuoter = Quoter('Logitech c922')
-quotedProduct = myQuoter.fit()
-quotedProduct.store_product()
-print(quotedProduct.name)
-print(quotedProduct.amazon_price)
-print(quotedProduct.amazon_url)
-print(quotedProduct.ebay_price)
-print(quotedProduct.ebay_url)
-'''
 
+DatabaseManager.create_database()
+DatabaseManager.create_products_table()
+
+Quoter.add_product_to_quote('Iphone 13')
 Quoter.quote()

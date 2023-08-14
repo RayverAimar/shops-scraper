@@ -4,3 +4,5 @@ SUCCESS = 1
 ERROR = None
 
 SOL_TO_DOLAR = 3.70
+
+DATABASE_NAME = 'shops_scraper'

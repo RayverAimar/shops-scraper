@@ -1,4 +1,5 @@
 import mysql.connector as mysql
+from config import DATABASE_NAME
 
 def connect():
     try:
@@ -6,9 +7,9 @@ def connect():
             host = 'localhost',
             user = 'root',
             password = '',
-            database = 'shop_scraper',
+            database = DATABASE_NAME,
         )
-        print('Connected to the database.')
+        print(f'Connected to {DATABASE_NAME} database.')
         return connection
     except mysql.Error as e:
         print('There was an error during connection.')
